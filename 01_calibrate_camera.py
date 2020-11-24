@@ -24,7 +24,7 @@ objp[:,:2] = np.mgrid[0:7,0:7].T.reshape(-1,2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-images = glob.glob('C:\Checkers Playing Robot\AI\images\Board.jpg')
+images = glob.glob('Board.jpg')
 # print(images)
 
 
