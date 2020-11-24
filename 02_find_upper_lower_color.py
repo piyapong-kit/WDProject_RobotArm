@@ -26,7 +26,7 @@ cv2.createTrackbar('high_Saturate','Input_Range',ihighS,255,callback)
 cv2.createTrackbar('low_Intensity','Input_Range',ilowV,255,callback)
 cv2.createTrackbar('high_Intensity','Input_Range',ihighV,255,callback)
 
-file_path = 'C:\Checkers Playing Robot\AI\images\Board.jpg'
+file_path = 'Board.jpg'
 
 while(1):
     cap = cv2.imread(file_path,1)
