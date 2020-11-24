@@ -92,7 +92,7 @@ class Vision():
 
     def image_callback(self):
             # Convert received image message to OpenCv image
-            frame = cv2.imread('C:\Checkers Playing Robot\AI\images\Board.jpg')
+            frame = cv2.imread('Board.jpg')
             ##cv2.imshow('frame', frame)
             ##cv2.waitKey(0)
 
