@@ -1,0 +1,2 @@
+cd gym-tictactoe/
+pip install -e .
