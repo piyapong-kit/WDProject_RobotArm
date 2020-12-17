@@ -17,7 +17,7 @@ tqdm = _tqdm
 
 from gym_tictactoe.env import TicTacToeEnv, set_log_level_by, agent_by_mark,\
     next_mark, check_game_status, after_action_state, O_REWARD, X_REWARD
-from human_agent import HumanAgent
+# from human_agent import HumanAgent
 from base_agent import BaseAgent
 
 
@@ -25,6 +25,9 @@ DEFAULT_VALUE = 0
 EPISODE_CNT = 17000
 BENCH_EPISODE_CNT = 3000
 MODEL_FILE = 'best_td_agent.dat'
+INITIAL_MODEL_FILE = 'initial_td_agent.dat'
+INITIAL_MODEL_FILE2 = 'initial_td_agent2.dat'
+LEARNED_MODEL = 'learn_model.dat'
 EPSILON = 0.08
 ALPHA = 0.4
 CWD = os.path.dirname(os.path.abspath(__file__))
@@ -47,84 +50,32 @@ def set_state_value(state, value):
 
 def best_val_indices(values, fn):
     best = fn(values)
+    if(fn == max and values.count(-1) == len(values)):
+        print(" >>>>>> There is no possible way to win. Please change the starting position <<<<<< ")
     return [i for i, v in enumerate(values) if v == best]
 
-
-class TDAgent(object):
-    def __init__(self, mark, epsilon, alpha):
+class HumanAgent(object):
+    def __init__(self, mark):
         self.mark = mark
-        self.alpha = alpha
-        self.epsilon = epsilon
-        self.episode_rate = 1.0
+        self.alpha = 0.4
 
-    def act(self, state, ava_actions):
-        return self.egreedy_policy(state, ava_actions)
-
-    def egreedy_policy(self, state, ava_actions):
-        """Returns action by Epsilon greedy policy.
-
-        Return random action with epsilon probability or best action.
-
-        Args:
-            state (tuple): Board status + mark
-            ava_actions (list): Available actions
-
-        Returns:
-            int: Selected action.
-        """
-        logging.debug("egreedy_policy for '{}'".format(self.mark))
-        e = random.random()
-        if e < self.epsilon * self.episode_rate:
-            logging.debug("Explore with eps {}".format(self.epsilon))
-            action = self.random_action(ava_actions)
-        else:
-            logging.debug("Exploit with eps {}".format(self.epsilon))
-            action = self.greedy_action(state, ava_actions)
+    def act(self, ava_actions):
+        while True:
+            uloc = input("Enter location[1-9], q for quit: ")
+            if uloc.lower() == 'q':
+                return None
+            try:
+                action = int(uloc) - 1
+                if action not in ava_actions:
+                    raise ValueError()
+            except ValueError:
+                print("Illegal location: '{}'".format(uloc))
+            else:
+                break
         """Print action to move Robot Arm"""
-        # print(action)
+        # print(action) 
         return action
-
-    def random_action(self, ava_actions):
-        return random.choice(ava_actions)
-
-    def greedy_action(self, state, ava_actions):
-        """Return best action by current state value.
-
-        Evaluate each action, select best one. Tie-breaking is random.
-
-        Args:
-            state (tuple): Board status + mark
-            ava_actions (list): Available actions
-
-        Returns:
-            int: Selected action
-        """
-        assert len(ava_actions) > 0
-
-        ava_values = []
-        for action in ava_actions:
-            nstate = after_action_state(state, action)
-            nval = self.ask_value(nstate)
-            ava_values.append(nval)
-            vcnt = st_visits[nstate]
-            logging.debug("  nstate {} val {:0.2f} visits {}".
-                          format(nstate, nval, vcnt))
-
-        # select most right action for 'O' or 'X'
-        if self.mark == 'O':
-            indices = best_val_indices(ava_values, max)
-        else:
-            indices = best_val_indices(ava_values, min)
-
-        # tie breaking by random choice
-        aidx = random.choice(indices)
-        logging.debug("greedy_action mark {} ava_values {} indices {} aidx {}".
-                      format(self.mark, ava_values, indices, aidx))
-
-        action = ava_actions[aidx]
-
-        return action
-
+    
     def ask_value(self, state):
         """Returns value of given state.
 
@@ -163,6 +114,137 @@ class TDAgent(object):
         nval = self.ask_value(nstate)
         diff = nval - val
         val2 = val + self.alpha * diff
+
+        logging.debug("  value from {:0.2f} to {:0.2f}".format(val, val2))
+        set_state_value(state, val2)
+
+class TDAgent(object):
+    def __init__(self, mark, epsilon, alpha):
+        self.mark = mark
+        self.alpha = alpha
+        self.epsilon = epsilon
+        self.episode_rate = 1.0
+
+    def act(self, state, ava_actions):
+        return self.egreedy_policy(state, ava_actions)
+
+    def egreedy_policy(self, state, ava_actions):
+        """Returns action by Epsilon greedy policy.
+
+        Return random action with epsilon probability or best action.
+
+        Args:
+            state (tuple): Board status + mark
+            ava_actions (list): Available actions
+
+        Returns:
+            int: Selected action.
+        """
+        logging.debug("egreedy_policy for '{}'".format(self.mark))
+        e = random.random()
+        # print(e)
+        if e < self.epsilon * self.episode_rate:
+            # print("take random action")
+            logging.debug("Explore with eps {}".format(self.epsilon))
+            action = self.random_action(ava_actions)
+        else:
+            # print("take greedy action")
+            logging.debug("Exploit with eps {}".format(self.epsilon))
+            action = self.greedy_action(state, ava_actions)
+        """Print action to move Robot Arm"""
+        # print(action)
+        return action
+
+    def random_action(self, ava_actions):
+        return random.choice(ava_actions)
+
+    def greedy_action(self, state, ava_actions):
+        """Return best action by current state value.
+
+        Evaluate each action, select best one. Tie-breaking is random.
+
+        Args:
+            state (tuple): Board status + mark
+            ava_actions (list): Available actions
+
+        Returns:
+            int: Selected action
+        """
+        assert len(ava_actions) > 0
+        coun_nstate = 0
+        ava_values = []
+        for action in ava_actions:
+            nstate = after_action_state(state, action)
+            nval = self.ask_value(nstate)
+            # show next state and reward for
+            print("Choice:"+str(coun_nstate)+". %s || Reward is %s" % (nstate, nval))
+            coun_nstate += 1
+            ava_values.append(nval)
+            vcnt = st_visits[nstate]
+            logging.debug("  nstate {} val {:0.2f} visits {}".
+                          format(nstate, nval, vcnt))
+
+        # select most right action for 'O' or 'X'
+        if self.mark == 'O':
+            indices = best_val_indices(ava_values, max)
+            print("---> Machine Choose Maximum Reward in choice(s) %s" % (indices))
+
+        else:
+            indices = best_val_indices(ava_values, min)
+            print("---> Machine Choose Minimum Reward in choice(s) %s" % (indices))
+
+        # tie breaking by random choice
+        aidx = random.choice(indices)
+        logging.debug("greedy_action mark {} ava_values {} indices {} aidx {}".
+                      format(self.mark, ava_values, indices, aidx))
+        print("------> Machine Choose choice %s." % (aidx))
+        action = ava_actions[aidx]
+        print("---------> Machine pick at %s." % str(action+1))
+        return action
+
+    def ask_value(self, state):
+        """Returns value of given state.
+
+        If state is not exists, set it as default value.
+
+        Args:
+            state (tuple): State.
+
+        Returns:
+            float: Value of a state.
+        """
+        if state not in st_values:
+            logging.debug("ask_value - new state {}".format(state))
+            gstatus = check_game_status(state[0])
+            val = DEFAULT_VALUE
+            # win
+            if gstatus > 0:
+                val = O_REWARD if self.mark == 'O' else X_REWARD
+            set_state_value(state, val)
+        return st_values[state]
+
+    def backup(self, state, nstate, reward):
+        """Backup value by difference and step size.
+
+        Execute an action then backup Q by best value of next state.
+
+        Args:
+            state (tuple): Current state
+            nstate (tuple): Next state
+            reward (int): Immediate reward from action
+        """
+        logging.debug("backup state {} nstate {} reward {}".
+                      format(state, nstate, reward))
+
+        val = self.ask_value(state)
+        # print(val)
+        nval = self.ask_value(nstate)
+        # print(nval)
+        diff = nval - val
+        # print(diff)
+        val2 = val + self.alpha * diff
+        # print(val2)
+        
 
         logging.debug("  value from {:0.2f} to {:0.2f}".format(val, val2))
         set_state_value(state, val2)
@@ -218,6 +300,7 @@ def _learn(max_episode, epsilon, alpha, save_file):
         # reset agent for new episode
         for agent in agents:
             agent.episode_rate = episode / float(max_episode)
+            print(agent.episode_rate)
 
         env.set_start_mark(start_mark)
         state = env.reset()
@@ -272,7 +355,9 @@ def load_model(filename):
             st_visits[state] = vcnt
     return info
 
-
+# Emma2541 
+# this fuction for continuous training agent from last avaiable model.
+# You can add your model by edit MODEL_FILE at load model and save model.
 @cli.command(help="continue Learn and save the model.")
 @click.option('-p', '--episode', "max_episode", default=EPISODE_CNT,
               show_default=True, help="Episode count.")
@@ -299,8 +384,8 @@ def _conlearn(max_episode, epsilon, alpha, save_file, load_file):
         alpha (float): Step size.
         save_file: File name to save result.
     """
-    # reset_state_values()
     load_model(load_file)
+    # reset_state_values()
     env = TicTacToeEnv()
     agents = [TDAgent('O', epsilon, alpha),
               TDAgent('X', epsilon, alpha)]
@@ -340,6 +425,173 @@ def _conlearn(max_episode, epsilon, alpha, save_file, load_file):
 
     # save states
     save_model(save_file, max_episode, epsilon, alpha)
+
+# Emma2541
+# this fucntion for learning agent step by step from human by save all state while play with them.
+# maxepisode available for save model but not continue count from the last episode.
+# If you want to swich turn between agent and human, delete commment "#start_mark = next_mark(start_mark)
+@cli.command(help="Learn from human and save the model.")
+@click.option('-e', '--epsilon', "epsilon", default=0, #prevent random exploring
+              show_default=True, help="Exploring factor.")
+@click.option('-a', '--alpha', "alpha", default=ALPHA,
+              show_default=True, help="Step size.")
+@click.option('-f', '--save-file', default=LEARNED_MODEL, show_default=True,
+              help="Save model data as file name.")
+@click.option('-f', '--load-file', default=LEARNED_MODEL, show_default=True,
+              help="Load file name.")
+@click.option('-n', '--show-number', is_flag=True, default=False,
+              show_default=True, help="Show location number when play.")
+def learnhuman(epsilon, alpha, save_file, load_file, show_number):
+    _learnhuman(epsilon, alpha, save_file, load_file, HumanAgent('X'), show_number)
+
+def _learnhuman(epsilon, alpha, save_file, load_file, vs_agent, show_number):
+    load_model(load_file)
+    env = TicTacToeEnv(show_number=show_number)    
+    start_mark = 'X'
+    agents = [vs_agent, TDAgent('O', epsilon, alpha)]
+    max_episode = 0
+    
+    while True:
+        # start agent rotation
+        env.set_start_mark(start_mark)
+        state = env.reset()
+        _, mark = state
+        done = False
+
+        # show start board for human agent
+        if mark == 'X':
+            env.render(mode='human')
+
+        while not done:
+            agent = agent_by_mark(agents, mark)
+            human = isinstance(agent, HumanAgent)
+            print("==================================")
+            env.show_turn(True, mark)
+            ava_actions = env.available_actions()
+            # print(ava_actions)
+            if human:
+                action = agent.act(ava_actions)
+                print("action is %s"%(action))
+                if action is None:
+                    sys.exit()
+            else:
+                action = agent.act(state, ava_actions)
+                print("action is %s"%(action))
+            ### 
+            nstate, reward, done, info = env.step(action)
+            agent.backup(state, nstate, reward)
+
+            env.render(mode='human')
+            if done:
+                print("Return reward : "+ str(reward))
+                env.show_result(True, mark, reward)
+                time.sleep(1)
+                # if reward == 1:
+                    # _conlearn(700, epsilon, alpha, save_file, load_file)
+                # set terminal state value
+                set_state_value(state, reward)
+                break
+            else:
+                _, mark = state = nstate
+
+        # rotation start
+        # start_mark = next_mark(start_mark)
+        max_episode += 1
+        # print(max_episode)
+        save_model(save_file, max_episode, epsilon, alpha)
+
+# Emma2541
+# this fuction is for show case how machine learning (reinforcement learning) works.
+# Show step of learning By fixed start position if Human pick the same position from last round.
+@cli.command(help="Learn from human for showcase.")
+@click.option('-e', '--epsilon', "epsilon", default=0, #prevent random exploring
+              show_default=True, help="Exploring factor.")
+@click.option('-a', '--alpha', "alpha", default=ALPHA,
+              show_default=True, help="Step size.")
+@click.option('-f', '--save-file', default=INITIAL_MODEL_FILE2, show_default=True,
+              help="Save model data as file name.")
+@click.option('-f', '--load-file', default=INITIAL_MODEL_FILE, show_default=True,
+              help="Load file name.")
+@click.option('-n', '--show-number', is_flag=True, default=False,
+              show_default=True, help="Show location number when play.")
+def learnhuman1(epsilon, alpha, save_file, load_file, show_number):
+    _learnhuman1(epsilon, alpha, save_file, load_file, HumanAgent('X'), show_number)
+
+def _learnhuman1(epsilon, alpha, save_file, load_file, vs_agent, show_number):
+    load_model(load_file)
+    env = TicTacToeEnv(show_number=show_number)    
+    start_mark = 'X'
+    agents = [vs_agent, TDAgent('O', epsilon, alpha)]
+    max_episode = 0
+    agent_temp = 6 #Set Start position at 6 to td_agent
+    human_temp = 0
+    while True:
+        # start agent rotation
+        env.set_start_mark(start_mark)
+        state = env.reset()
+        _, mark = state
+        done = False
+        turns = 0
+        human_diff = False
+
+        # show start board for human agent
+        if mark == 'X':
+            env.render(mode='human')
+
+        while not done:
+            agent = agent_by_mark(agents, mark)
+            human = isinstance(agent, HumanAgent)
+            print("======================================Switch Turn======================================")
+            env.show_turn(True, mark)
+            ava_actions = env.available_actions()
+            # print(ava_actions)
+            if human:
+                action = agent.act(ava_actions)
+                turns += 1
+                if turns == 1 and human_temp != action:
+                    human_temp = action
+                    human_diff = True
+                    # print("Human action is %s"%(action))
+                    # print("Turns == %s" % (turns))
+                    # print("human_temp == %s" %(human_temp))
+                    # print("human_diff == %s" %(human_diff))
+                if action is None:
+                    sys.exit()
+            else:
+                action = agent.act(state, ava_actions)
+                if turns == 1 and human_diff == False:
+                    action = agent_temp
+                    print("------------> Human start in the same position")
+                    print("------------> [Fix]Agent action is %s"%(action+1))
+                elif turns == 1 and human_diff == True:
+                    agent_temp = action
+                    print("------------> Human start in the diiferent position")
+                    print("------------> [New]Agent action is %s"%(action+1))
+                else:
+                    print("------------> Agent action is %s"%(action+1))
+            ### 
+            nstate, reward, done, info = env.step(action)
+            agent.backup(state, nstate, reward)
+
+            env.render(mode='human')
+            if done:
+                print("Return reward : "+ str(reward))
+
+                env.show_result(True, mark, reward)
+                time.sleep(1)
+                # if reward == 1:
+                    # _conlearn(700, epsilon, alpha, save_file, load_file)
+                # set terminal state value
+                set_state_value(state, reward)
+                break
+            else:
+                _, mark = state = nstate
+
+        # rotation start
+        # start_mark = next_mark(start_mark)
+        max_episode += 1
+        # print(max_episode)
+        save_model(save_file, max_episode, epsilon, alpha)
 
 
 @cli.command(help="Play with human.")
