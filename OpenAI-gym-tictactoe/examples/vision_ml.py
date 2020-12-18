@@ -367,13 +367,13 @@ def _learnhuman1(epsilon, alpha, save_file, load_file, vs_agent, show_number):
             env.render(mode='human')
             if done:
                 print("Return reward : "+ str(reward))
-
                 env.show_result(True, mark, reward)
                 time.sleep(1)
                 # if reward == 1:
                     # _conlearn(700, epsilon, alpha, save_file, load_file)
                 # set terminal state value
                 set_state_value(state, reward)
+                vision.reset_board()
                 break
             else:
                 _, mark = state = nstate
@@ -466,6 +466,11 @@ class Vision():
                 break
         # self.img.release()
         # cv2.destroyAllWindows
+
+    def reset_board(self):
+        self.gamestate = [["-","-","-"],["-","-","-"],["-","-","-"]]
+        self.temp_gamestate = [["-","-","-"],["-","-","-"],["-","-","-"]]
+        self.temp_count_x = 0
     
     def find_diff_position(self, temp_gamestate, gamestate):
         diff_pos = 0
